@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_mappa() {
         let mut amprms: [f64; 21] = [0.0; 21];
-        let mut expected: [f64; 21] = [
+        let expected: [f64; 21] = [
             1.9986310746064646082,
             -0.1728200754134739392,
             0.88745394651412767839,

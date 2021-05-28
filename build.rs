@@ -32,7 +32,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
-        .header("ext/pal/pal.h")
+        .header("include/wrapper.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
@@ -47,25 +47,17 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-    
+
+    // Allow user to specify where PAL is installed
+    let pal_lib = std::env::var("PAL_LIB").unwrap_or(String::from("/usr/local/lib"));
+    println!("cargo:rustc-link-search=native={}", pal_lib);
+
     // The "static" feature means that we compile the PAL source directly and
     // link it. If we're not using that feature, then we need to find the
     // library and link that instead.
     #[cfg(not(feature = "static"))]
     {
-        // See if PAL_LIB is defined. If so, use it to search and link the library.
-        match std::env::var("PAL_LIB") {
-            Ok(lib) => {
-                println!("cargo:rustc-link-search=native={}", lib);
-                println!("cargo:rustc-link-lib=pal");
-            }
-
-            // Search via pkg-config.
-            Err(_) => {
-                pkg_config::probe_library("pal")
-                .unwrap_or_else(|_| panic!("Couldn't find the PAL library via pkg-config. Please set the PAL_LIB environment variable to the location of `libpal.so`"));
-            }
-        }
+        println!("cargo:rustc-link-lib=pal");
 
         // Because pkg-config-rs is very restrictive of allowing things to be
         // compiled statically, manually specify that we should link statically here
@@ -77,34 +69,12 @@ fn main() {
 
     #[cfg(feature = "static")]
     {
-        // Change this directory if the source code is updated.
-        let pal_project_dir = std::path::PathBuf::from("ext/pal");
-        if !pal_project_dir.exists() {
-            panic!(
-                "Expected to find PAL source directory {}",
-                pal_project_dir.display()
-            );
-        }
-
-        // Translate rustc optimisation levels to things a C compiler can
-        // understand. I don't know if all C compilers agree here, but it should
-        // at least work for gcc.
-        let opt_level: String = match std::env::var("OPT_LEVEL").as_ref().map(|o| o.as_str()) {
-            Err(_) => panic!("Something wrong with OPT_LEVEL"),
-            // gcc doesn't handle 'z'. Just set it to 's', which also optimises
-            // for size.
-            Ok("z") => "s",
-            Ok(o) => o,
-        }
-        .to_string();
-        let dst = autotools::Config::new(pal_project_dir)
-            .disable_shared()
-            .cflag("-Wall")
-            .cflag(format!("-O{}", opt_level))
-            .cflag("-fPIE")
-            .build();
-
-        println!("cargo:rustc-link-search=native={}/lib", dst.display());
+        // println!("cargo:warning=pal is statically linked");
         println!("cargo:rustc-link-lib=static=pal");
     }
+
+    let erfa_lib = std::env::var("ERFA_LIB").unwrap_or(String::from("/usr/lib/x86_64-linux-gnu"));
+
+    println!("cargo:rustc-link-search=native={}", erfa_lib);
+    println!("cargo:rustc-link-lib=erfa");
 }

@@ -1,0 +1,65 @@
+name: Run tests
+
+# Do this on every push
+on: [push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+          sudo apt update && apt install -y git \
+                          wget \
+                          build-essential \
+                          cmake \
+                          gfortran \
+                          python3-dev \
+                          libopenblas-dev \
+                          libboost-dev \
+                          libboost-date-time-dev \
+                          libboost-system-dev \
+                          libboost-filesystem-dev \
+                          libboost-python-dev \
+                          libboost-numpy-dev \
+                          libxml++2.6-dev \
+                          libgtkmm-3.0-dev  \ 
+                          libcairo2-dev \
+                          libcfitsio-dev \
+                          libfftw3-dev \
+                          libpng-dev \
+                          casacore-dev \
+                          liberfa-dev
+
+    - name: Install PAL C library
+      run: |
+        cd /tmp
+        wget "https://github.com/Starlink/pal/releases/download/v0.9.7/pal-0.9.7.tar.gz" \
+        tar -xf pal-0.9.7.tar.gz \
+        cd pal-0.9.7 \
+        ./configure --prefix=/usr/local --without-starlink \
+        make \
+        sudo make install
+
+
+    - name: Install Rust
+    - run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          . $HOME/.cargo/env
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup target add x86_64-unknown-linux-gnu
+
+    - name: Run tests
+      run: |
+        . $HOME/.cargo/env
+        cargo test
+        cargo test --features static
+      env:
+        PAL_LIB: /usr/local/lib
+        ERFA_LIB: /usr/lib/x86_64-linux-gnu
